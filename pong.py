@@ -5,8 +5,8 @@ import random
 import math
 
 
-HEIGHT = 40
-WIDTH = 117
+HEIGHT = 20
+WIDTH = 77
 FPS = 60
 
 table_horizontal = "\u2550"
@@ -77,10 +77,60 @@ table_dims = [WIDTH, HEIGHT]
 table_inter_dims_max = [dim - 2 for dim in table_dims]
 table_inter_dims_min = [1, 1]
 
+
 player_1_keys = {"up": False, "down": False, "left": False, "right": False}
 player_1_dimenstions = {"width": 2, "height": 8}
-player_1_coords = [-1 + int(player_1_dimenstions["width"]), int(HEIGHT/2) - int(player_1_dimenstions["height"]/2)]
+player_1_coords = [-1 + int(player_1_dimenstions["width"]), int(HEIGHT/2) - int(player_1_dimenstions["height"]/2)-3]
 player_1_body = []
+
+player_1_bounce_zones = []
+
+def calculate_bounce_zones(dimensions, bounce_zones):
+
+    if dimensions["height"] % 2 != 0:
+        middle = int(dimensions["height"] / 2) + 1
+    else:
+        middle = int(dimensions["height"] / 2)
+
+    for i in range(2*middle-1, 0, -1):
+        x1 = (1 + 0.5*(i/middle)) * math.pi
+        x2 = x1 + math.pi
+        bounce_zones.insert(0, [round(math.sin(x1), 3), round(math.cos(x1), 3)])
+        bounce_zones.append([round(math.sin(x2), 3), round(math.cos(x2), 3)])
+        if abs(i) == middle:
+            bounce_zones.insert(0, [round(math.sin(x1), 3), round(math.cos(x1), 3)])
+            bounce_zones.append([round(math.sin(x2), 3), round(math.cos(x2), 3)])
+
+    return bounce_zones
+
+
+player_1_bounce_zones = calculate_bounce_zones(player_1_dimenstions, player_1_bounce_zones)
+
+# 12 possible ball directions - 4 for each quarter
+# 1.000000     sin(0.5 x pi)
+# 0.000000     cos(0.5 x pi)
+# 0.923879     sin(0.375 x pi)
+# 0.382683     cos(0.375 x pi)
+# 0.707107     sin(0.25 x pi)
+# 0.707107     cos(0.25 x pi)
+# 0.382683     sin(0.125 x pi)
+# 0.923879     cos(0.125 x pi)
+
+possible_directions = []
+for i in range(4, 0, -1):
+    x = 0.125*math.pi*i
+    possible_directions.append([round(math.sin(x), 3), round(math.cos(x), 3)])
+
+ball_move = random.choice(possible_directions)
+ball_move = [-1,0]
+str_ball_move = "ix: " + str(ball_move[0]) + " iy: " + str(ball_move[1])
+
+def player_body_init(player_dim, coords):
+    s = [(x,y) for x in range(player_dim["width"]) for y in range(player_dim["height"])]
+    player_body = [(l[0]+coords[0], l[1]+coords[1]) for l in s]
+    return player_body
+
+player_body = player_body_init(player_1_dimenstions, player_1_coords)
 
 
 player_2_keys = {"up": False, "down": False, "left": False, "right": False}
@@ -133,24 +183,6 @@ def move(player_dim,
 
 
 
-# 12 possible ball directions - 4 for each quarter
-# 1.000000     sin(0.5 x pi)
-# 0.000000     cos(0.5 x pi)
-# 0.923879     sin(0.375 x pi)
-# 0.382683     cos(0.375 x pi)
-# 0.707107     sin(0.25 x pi)
-# 0.707107     cos(0.25 x pi)
-# 0.382683     sin(0.125 x pi)
-# 0.923879     cos(0.125 x pi)
-
-possible_directions = []
-for i in range(4, 0, -1):
-    x = 0.125*math.pi*i
-    possible_directions.append([round(math.sin(x), 3), round(math.cos(x), 3)])
-
-ball_move = random.choice(possible_directions)
-# ball_move = [-1,0]
-str_ball_move = "ix: " + str(ball_move[0]) + " iy: " + str(ball_move[1])
 
 
 ball_next_move = [0,0]
@@ -159,17 +191,17 @@ def ball_movement(ball_coords, ball_move):
     ball_next_move[0] += ball_move[0]
     ball_next_move[1] += ball_move[1]
 
-    if (ball_next_move[0] >= 1 or ball_next_move[0] <= -1) and ball_next_move[1] == 0:
-        ball_limits_checker(ball_coords, ball_move, "x", table_inter_dims_min, table_inter_dims_max, player_1_body)
-    elif (ball_next_move[1] >= 1 or ball_next_move[1] <= -1) and ball_next_move[0] == 0:
-        ball_limits_checker(ball_coords, ball_move, "y", table_inter_dims_min, table_inter_dims_max, player_1_body)
-    elif (ball_next_move[0] >= 1 or ball_next_move[0] <= -1) and (ball_next_move[1] >= 1 or ball_next_move[1] <= -1):
-        ball_limits_checker(ball_coords, ball_move, "x", table_inter_dims_min, table_inter_dims_max, player_1_body)
-        ball_limits_checker(ball_coords, ball_move, "y", table_inter_dims_min, table_inter_dims_max, player_1_body)
+    if abs(ball_next_move[0]) >= 1 and abs(ball_next_move[1]) < 1:
+        ball_limits_checker(ball_coords, ball_move, "x", table_inter_dims_min, table_inter_dims_max, player_1_body, player_1_bounce_zones)
+    elif abs(ball_next_move[1]) >= 1 and abs(ball_next_move[0]) < 1:
+        ball_limits_checker(ball_coords, ball_move, "y", table_inter_dims_min, table_inter_dims_max, player_1_body, player_1_bounce_zones)
+    elif abs(ball_next_move[0]) >= 1 and abs(ball_next_move[1]) >= 1:
+        ball_limits_checker(ball_coords, ball_move, "x", table_inter_dims_min, table_inter_dims_max, player_1_body, player_1_bounce_zones)
+        ball_limits_checker(ball_coords, ball_move, "y", table_inter_dims_min, table_inter_dims_max, player_1_body, player_1_bounce_zones)
 
 
 
-def ball_limits_checker(ball_coords, ball_move, axis, limit_dims_min, limit_dims_max, player_body):
+def ball_limits_checker(ball_coords, ball_move, axis, limit_dims_min, limit_dims_max, player_body, bounce_zones):
     if axis == "x":
         ax = 0
     elif axis == "y":
@@ -185,23 +217,34 @@ def ball_limits_checker(ball_coords, ball_move, axis, limit_dims_min, limit_dims
     elif ball_coords[ax] >= limit_dims_max[ax]:
         direction_changer(ball_coords, ball_move, ball_next_move, limit_dims_max, ax)
 
-    elif tuple(ball_coords) in player_body:
-        angle_changer(ball_coords, ball_move, ball_next_move, player_body, ax, ix)
+    elif tuple(ball_coords) in player_body and ix != 0:
+        coords_index = player_body.index(tuple(ball_coords))
+        angle_changer(ball_coords, ball_move, ball_next_move, player_body, ax, ix, coords_index, bounce_zones)
 
 def direction_changer(ball_coords, ball_move, ball_next_move, limit, axis_nr):
     ball_coords[axis_nr] = limit[axis_nr]
     ball_move[axis_nr] = -ball_move[axis_nr]
     ball_next_move[axis_nr] = -ball_next_move[axis_nr]
 
-def angle_changer(ball_coords, ball_move, ball_next_move, player_body, axis_nr, step):
+def angle_changer(ball_coords, ball_move, ball_next_move, player_body, axis_nr, step, coords_index, bounce_zones):
     ball_coords[axis_nr] = ball_coords[axis_nr] - int(step/abs(step))
-    ball_next_move[axis_nr] = -ball_next_move[axis_nr]
 
-    ball_move[axis_nr] = -ball_move[axis_nr]
+    ball_move[0] = bounce_zones[coords_index][0]
+    ball_move[1] = bounce_zones[coords_index][1]
+    # ball_next_move[axis_nr] = -ball_next_move[axis_nr]
+    ball_next_move[0] = ball_move[0]
+    ball_next_move[1] = ball_move[1]
 
 
 
 def player_body_calc(player_dim, coords, player_body):
+    s = []
+    bounce_zones = []
+    for x in range(player_dim["width"]):
+        for y in range(player_dim["height"]):
+            s.append((x,y))
+
+
     s = [(x,y) for x in range(player_dim["width"]) for y in range(player_dim["height"])]
     player_body = [(l[0]+coords[0], l[1]+coords[1]) for l in s]
     return player_body
@@ -225,12 +268,13 @@ while True:
     key_checker(player_1_keys, 'w', 's', 'a', 'd')
     key_checker(player_2_keys, 'up', 'down', 'left', 'right')
 
+    ball_movement(ball_coords, ball_move)
     move(player_1_dimenstions, player_1_coords, player_1_body, player_1_keys)
     move(player_2_dimenstions, player_2_coords, player_2_body, player_2_keys)
     player_1_body = player_body_calc(player_1_dimenstions, player_1_coords, player_1_body)
     # s = [(x,y) for x in range(player_1_dimenstions["width"]) for y in range(player_1_dimenstions["height"])]
     # player_1_body = [(l[0]+player_1_coords[0], l[1]+player_1_coords[1]) for l in s]
-    ball_movement(ball_coords, ball_move)
+    
     
 
 
